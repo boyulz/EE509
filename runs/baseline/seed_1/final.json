@@ -1,0 +1,31 @@
+{
+  "config": {
+    "experiment_name": "baseline",
+    "seed": 1,
+    "split_seed": 42,
+    "train_subset": "target_train",
+    "eval_subset": "target_test",
+    "model": {
+      "input_dim": 600,
+      "hidden_dim": 128,
+      "num_classes": 100,
+      "activation": "tanh"
+    },
+    "optimizer": "sgd",
+    "lr": 0.01,
+    "momentum": 0.9,
+    "weight_decay": 0.0,
+    "batch_size": 128,
+    "epochs": 100,
+    "dp_config": null,
+    "output_root": "runs"
+  },
+  "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+  "device": "cpu",
+  "wall_time_seconds": 17.63086700439453,
+  "final_train_loss": 0.04887543354034424,
+  "final_train_acc": 1.0,
+  "final_eval_loss": 0.7430230442047119,
+  "final_eval_acc": 0.7366,
+  "generalization_gap": 0.26339999999999997
+}

@@ -1,0 +1,19 @@
+experiment_name: baseline
+seed: 42
+split_seed: 42
+
+train_subset: target_train
+eval_subset: target_test
+
+model:
+  input_dim: 600
+  hidden_dim: 128
+  num_classes: 100
+  activation: tanh
+
+optimizer: sgd
+lr: 0.01
+momentum: 0.9
+weight_decay: 0.0
+batch_size: 128
+epochs: 100
