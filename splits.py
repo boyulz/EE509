@@ -9,6 +9,8 @@ Design principles:
 """
 
 from pathlib import Path
+from typing import Dict
+
 import numpy as np
 from data.load_purchase100 import load_purchase100
 
@@ -20,10 +22,11 @@ SPLIT_SIZES = {
     "shadow_pool":  172_324,
 }
 
-SPLITS_DIR = Path("data/splits")
+REPO_ROOT = Path(__file__).resolve().parent
+SPLITS_DIR = REPO_ROOT / "data/splits"
 
 
-def make_splits(seed: int) -> dict[str, np.ndarray]:
+def make_splits(seed: int) -> Dict[str, np.ndarray]:
     """Generate deterministic dataset splits from a seed.
 
     Returns a dict mapping subset name -> int64 index array.
@@ -32,10 +35,11 @@ def make_splits(seed: int) -> dict[str, np.ndarray]:
     n_total = len(features)
 
     expected_total = sum(SPLIT_SIZES.values())
-    assert n_total == expected_total, (
-        f"Dataset size {n_total} does not match split total {expected_total}. "
-        f"Check SPLIT_SIZES."
-    )
+    if n_total != expected_total:
+        raise ValueError(
+            f"Dataset size {n_total} does not match split total {expected_total}. "
+            f"Check SPLIT_SIZES."
+        )
 
     # Use an isolated RNG so we don't pollute global random state
     rng = np.random.default_rng(seed)
@@ -51,21 +55,26 @@ def make_splits(seed: int) -> dict[str, np.ndarray]:
     return splits
 
 
-def _validate_splits(splits: dict[str, np.ndarray], n_total: int) -> None:
+def _validate_splits(splits: Dict[str, np.ndarray], n_total: int) -> None:
     """Sanity checks: disjoint subsets, correct sizes, full coverage."""
     for name, expected_size in SPLIT_SIZES.items():
-        assert name in splits, f"Missing subset: {name}"
-        assert len(splits[name]) == expected_size, (
-            f"{name} has size {len(splits[name])}, expected {expected_size}"
-        )
+        if name not in splits:
+            raise KeyError(f"Missing subset: {name}")
+        if len(splits[name]) != expected_size:
+            raise ValueError(
+                f"{name} has size {len(splits[name])}, expected {expected_size}"
+            )
 
     all_indices = np.concatenate(list(splits.values()))
-    assert len(all_indices) == n_total, "Total index count != dataset size"
-    assert len(np.unique(all_indices)) == n_total, "Duplicate indices (subsets overlap)"
-    assert all_indices.min() == 0 and all_indices.max() == n_total - 1, "Index range invalid"
+    if len(all_indices) != n_total:
+        raise ValueError("Total index count != dataset size")
+    if len(np.unique(all_indices)) != n_total:
+        raise ValueError("Duplicate indices detected; subsets overlap")
+    if all_indices.min() != 0 or all_indices.max() != n_total - 1:
+        raise ValueError("Index range invalid")
 
 
-def save_splits(seed: int, splits: dict[str, np.ndarray]) -> Path:
+def save_splits(seed: int, splits: Dict[str, np.ndarray]) -> Path:
     """Save splits to disk."""
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     path = SPLITS_DIR / f"seed_{seed}.npz"
@@ -73,7 +82,7 @@ def save_splits(seed: int, splits: dict[str, np.ndarray]) -> Path:
     return path
 
 
-def load_splits(seed: int) -> dict[str, np.ndarray]:
+def load_splits(seed: int) -> Dict[str, np.ndarray]:
     """Load splits from disk. Errors out if missing (do not silently regenerate)."""
     path = SPLITS_DIR / f"seed_{seed}.npz"
     if not path.exists():
@@ -86,8 +95,8 @@ def load_splits(seed: int) -> dict[str, np.ndarray]:
     splits = {name: data[name] for name in SPLIT_SIZES.keys()}
 
     # Re-validate on load in case the file was modified
-    _, _ = load_purchase100()  # ensure dataset is available
-    n_total = sum(SPLIT_SIZES.values())
+    features, _ = load_purchase100()  # ensure dataset is available
+    n_total = len(features)
     _validate_splits(splits, n_total)
 
     return splits

@@ -100,13 +100,34 @@ Outputs land in `runs/baseline/seed_42/`:
 - `final.json` — final metrics, config, git commit, wall time
 - `model.pt` — model weights (use for downstream attacks)
 
-To run additional seeds:
+Common training workflows:
+
+```bash
+# Single run
+python train.py --config configs/baseline.yaml
+
+# Multi-seed run
+python train.py --config configs/baseline.yaml --seeds 1 2 3 42
+
+# Explicitly overwrite an existing run
+python train.py --config configs/baseline.yaml --seed 42 --overwrite
+
+# Rebuild summary files from existing per-seed logs
+python train.py --config configs/baseline.yaml --aggregate-only
+```
+
+To run additional seeds one by one:
 
 ```bash
 python train.py --config configs/baseline.yaml --seed 1
 python train.py --config configs/baseline.yaml --seed 2
 python train.py --config configs/baseline.yaml --seed 3
 ```
+
+For multi-seed experiments, aggregate outputs are written to:
+
+- `runs/baseline/summary.json` — machine-readable aggregate statistics
+- `runs/baseline/summary.csv` — per-seed results table for downstream analysis
 
 **Expected behavior.** The baseline is intentionally unregularized so it
 overfits — overfitting is what makes MIA work and what DP-SGD must defend.

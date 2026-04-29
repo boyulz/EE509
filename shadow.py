@@ -13,6 +13,8 @@ allows N to scale beyond what disjoint sampling would permit.
 
 from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Optional, Tuple
+
 import numpy as np
 
 from splits import load_splits
@@ -32,7 +34,7 @@ def make_shadow_split(
         split_seed: int = 42,
         train_size: int = SHADOW_TRAIN_SIZE,
         test_size: int = SHADOW_TEST_SIZE,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Generate a deterministic (train, test) index pair for one shadow model.
 
     Args:
@@ -65,14 +67,15 @@ def make_shadow_split(
     test_indices = sampled[train_size:].astype(np.int64)
 
     # Sanity check: train and test must be disjoint within this shadow
-    assert len(np.intersect1d(train_indices, test_indices)) == 0
+    if len(np.intersect1d(train_indices, test_indices)) != 0:
+        raise ValueError("Shadow train/test splits must be disjoint")
 
     return train_indices, test_indices
 
 
 def train_shadow_model(
         shadow_idx: int,
-        base_config: TrainConfig | None = None,
+        base_config: Optional[TrainConfig] = None,
         output_root: str = "runs/shadows",
 ) -> dict:
     """Train one shadow model end-to-end.
@@ -105,7 +108,10 @@ def train_shadow_model(
     )
 
     # Save the shadow split so attack code can load (member, non-member) labels
-    run_dir = Path(output_root) / f"shadow_{shadow_idx}"
+    run_root = Path(output_root)
+    if not run_root.is_absolute():
+        run_root = Path(__file__).resolve().parent / run_root
+    run_dir = run_root / f"shadow_{shadow_idx}"
     run_dir.mkdir(parents=True, exist_ok=True)
     np.savez(run_dir / "split.npz", train=train_idx, test=test_idx)
 
@@ -113,10 +119,10 @@ def train_shadow_model(
     # NOTE: This requires train.py to support index-based subsets — see below.
     config = replace(
         base_config,
-        experiment_name=f"shadows/shadow_{shadow_idx}",
+        experiment_name=f"shadow_{shadow_idx}",
         train_indices=train_idx,
         eval_indices=test_idx,
-        output_root="runs",
+        output_root=output_root,
     )
     return train_model(config)
 
@@ -140,7 +146,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--shadow_idx", type=int, required=True)
+    parser.add_argument("--shadow_idx", type=int, default=None)
     parser.add_argument("--n_shadows", type=int, default=None,
                         help="If set, train shadows from 0 to n_shadows-1")
     args = parser.parse_args()
@@ -150,4 +156,6 @@ if __name__ == "__main__":
             print(f"\n=== Training shadow {i}/{args.n_shadows - 1} ===")
             train_shadow_model(i)
     else:
+        if args.shadow_idx is None:
+            parser.error("Provide either --shadow_idx or --n_shadows.")
         train_shadow_model(args.shadow_idx)

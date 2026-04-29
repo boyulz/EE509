@@ -10,10 +10,11 @@ The train_model(config) function is the core API consumed by:
 """
 
 import argparse
+import csv
 import json
 import subprocess
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, replace
 from pathlib import Path
 from typing import Optional
 
@@ -28,6 +29,8 @@ from data.load_purchase100 import load_purchase100
 from splits import load_splits
 from model import build_model
 from utils.seeding import set_seed
+
+REPO_ROOT = Path(__file__).resolve().parent
 
 
 @dataclass
@@ -68,13 +71,14 @@ class TrainConfig:
 
     # Output
     output_root: str = "runs"
+    overwrite: bool = False
 
 
 def _git_commit() -> str:
     """Best-effort git commit hash for traceability."""
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, cwd=REPO_ROOT
         ).decode().strip()
     except Exception:
         return "unknown"
@@ -119,6 +123,149 @@ def _build_optimizer(model, config: TrainConfig):
         raise ValueError(f"Unknown optimizer: {config.optimizer}")
 
 
+def _resolve_run_root(output_root: str) -> Path:
+    run_root = Path(output_root)
+    if not run_root.is_absolute():
+        run_root = REPO_ROOT / run_root
+    return run_root
+
+
+def _run_dir(config: TrainConfig) -> Path:
+    return _resolve_run_root(config.output_root) / config.experiment_name / f"seed_{config.seed}"
+
+
+def _ensure_writable_run_dir(run_dir: Path, overwrite: bool) -> None:
+    existing_artifacts = [run_dir / name for name in ("metrics.jsonl", "final.json", "model.pt")]
+    if any(path.exists() for path in existing_artifacts) and not overwrite:
+        raise FileExistsError(
+            f"Run directory {run_dir} already contains artifacts. "
+            f"Use overwrite=True or --overwrite to replace them."
+        )
+
+
+def collect_results(output_root: str, experiment_name: str) -> list[dict]:
+    """Load all final.json files under one experiment directory."""
+    experiment_dir = _resolve_run_root(output_root) / experiment_name
+    if not experiment_dir.exists():
+        raise FileNotFoundError(f"Experiment directory not found: {experiment_dir}")
+
+    results = []
+    for final_path in sorted(experiment_dir.glob("seed_*/final.json")):
+        with open(final_path) as f:
+            record = json.load(f)
+        seed = record.get("config", {}).get("seed")
+        if seed is None:
+            try:
+                seed = int(final_path.parent.name.removeprefix("seed_"))
+            except ValueError as exc:
+                raise ValueError(f"Could not infer seed from {final_path}") from exc
+        record["seed"] = seed
+        record["run_dir"] = str(final_path.parent)
+        results.append(record)
+
+    if not results:
+        raise FileNotFoundError(
+            f"No final.json files found under {experiment_dir}. Train runs first."
+        )
+
+    return sorted(results, key=lambda item: item["seed"])
+
+
+def _metric_stats(values: list[float]) -> dict:
+    array = np.asarray(values, dtype=np.float64)
+    if array.size == 0:
+        raise ValueError("Cannot summarize an empty metric list")
+    std = float(array.std(ddof=1)) if array.size > 1 else 0.0
+    return {
+        "mean": float(array.mean()),
+        "std": std,
+        "min": float(array.min()),
+        "max": float(array.max()),
+    }
+
+
+def summarize_results(results: list[dict]) -> dict:
+    """Aggregate per-seed final metrics into a summary dict."""
+    metrics_to_summarize = [
+        "final_train_acc",
+        "final_eval_acc",
+        "generalization_gap",
+        "final_train_loss",
+        "final_eval_loss",
+        "wall_time_seconds",
+    ]
+    summary = {
+        "num_runs": len(results),
+        "seeds": [result["seed"] for result in results],
+        "metrics": {},
+        "runs": results,
+    }
+    for metric in metrics_to_summarize:
+        summary["metrics"][metric] = _metric_stats([result[metric] for result in results])
+    return summary
+
+
+def write_summary_files(output_root: str, experiment_name: str, summary: dict) -> tuple[Path, Path]:
+    """Persist aggregate results as machine-readable JSON + CSV."""
+    experiment_dir = _resolve_run_root(output_root) / experiment_name
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = experiment_dir / "summary.json"
+    csv_path = experiment_dir / "summary.csv"
+
+    with open(json_path, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    fieldnames = [
+        "seed",
+        "final_train_acc",
+        "final_eval_acc",
+        "generalization_gap",
+        "final_train_loss",
+        "final_eval_loss",
+        "wall_time_seconds",
+        "git_commit",
+        "run_dir",
+    ]
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for result in summary["runs"]:
+            writer.writerow({key: result.get(key) for key in fieldnames})
+
+    return json_path, csv_path
+
+
+def train_many(config: TrainConfig, seeds: list[int]) -> tuple[list[dict], dict]:
+    """Train the same experiment across multiple seeds and write an aggregate summary."""
+    results = []
+    for seed in seeds:
+        run_config = replace(config, seed=seed)
+        print(f"\n=== Training seed {seed} ===")
+        results.append(train_model(run_config))
+
+    summary = summarize_results(results)
+    json_path, csv_path = write_summary_files(config.output_root, config.experiment_name, summary)
+    eval_stats = summary["metrics"]["final_eval_acc"]
+    gap_stats = summary["metrics"]["generalization_gap"]
+    print(
+        "\nAggregate summary: "
+        f"eval acc {eval_stats['mean']:.4f} ± {eval_stats['std']:.4f}, "
+        f"gap {gap_stats['mean']:.4f} ± {gap_stats['std']:.4f}"
+    )
+    print(f"Summary saved to: {json_path} and {csv_path}")
+    return results, summary
+
+
+def aggregate_existing_runs(config: TrainConfig) -> dict:
+    """Rebuild summary files from existing per-seed final.json logs."""
+    results = collect_results(config.output_root, config.experiment_name)
+    summary = summarize_results(results)
+    json_path, csv_path = write_summary_files(config.output_root, config.experiment_name, summary)
+    print(f"Aggregate summary rebuilt from existing runs: {json_path} and {csv_path}")
+    return summary
+
+
 def train_model(config: TrainConfig) -> dict:
     """Train one model end-to-end and return a results dict.
 
@@ -132,7 +279,8 @@ def train_model(config: TrainConfig) -> dict:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # ----- Output directory -----
-    run_dir = Path(config.output_root) / config.experiment_name / f"seed_{config.seed}"
+    run_dir = _run_dir(config)
+    _ensure_writable_run_dir(run_dir, overwrite=config.overwrite)
     run_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = run_dir / "metrics.jsonl"
     metrics_path.write_text("")  # truncate any previous run
@@ -217,6 +365,7 @@ def train_model(config: TrainConfig) -> dict:
     config_for_log.pop("eval_indices", None)
 
     final = {
+        "seed": config.seed,
         "config": config_for_log,
         "git_commit": _git_commit(),
         "device": str(device),
@@ -226,6 +375,7 @@ def train_model(config: TrainConfig) -> dict:
         "final_eval_loss": eval_loss,
         "final_eval_acc": eval_acc,
         "generalization_gap": train_acc - eval_acc,
+        "run_dir": str(run_dir),
     }
     with open(run_dir / "final.json", "w") as f:
         json.dump(final, f, indent=2)
@@ -239,7 +389,10 @@ def train_model(config: TrainConfig) -> dict:
 
 def load_config(path: str) -> TrainConfig:
     """Load a YAML config and merge into TrainConfig defaults."""
-    with open(path) as f:
+    config_path = Path(path)
+    if not config_path.is_absolute():
+        config_path = REPO_ROOT / config_path
+    with open(config_path) as f:
         data = yaml.safe_load(f)
     return TrainConfig(**data)
 
@@ -249,10 +402,25 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="configs/baseline.yaml")
     parser.add_argument("--seed", type=int, default=None,
                         help="Override seed in config")
+    parser.add_argument("--seeds", type=int, nargs="+", default=None,
+                        help="Run the same config for multiple seeds")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Overwrite existing artifacts for the selected run(s)")
+    parser.add_argument("--aggregate-only", action="store_true",
+                        help="Skip training and rebuild summary files from existing runs")
     args = parser.parse_args()
 
+    if args.seed is not None and args.seeds is not None:
+        parser.error("Use either --seed or --seeds, not both.")
+
     config = load_config(args.config)
+    config.overwrite = args.overwrite
     if args.seed is not None:
         config.seed = args.seed
 
-    train_model(config)
+    if args.aggregate_only:
+        aggregate_existing_runs(config)
+    elif args.seeds is not None:
+        train_many(config, args.seeds)
+    else:
+        train_model(config)

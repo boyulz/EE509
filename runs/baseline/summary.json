@@ -1,0 +1,215 @@
+{
+  "num_runs": 5,
+  "seeds": [
+    1,
+    2,
+    3,
+    42,
+    99
+  ],
+  "metrics": {
+    "final_train_acc": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "final_eval_acc": {
+      "mean": 0.7454799999999999,
+      "std": 0.005862337417788231,
+      "min": 0.7366,
+      "max": 0.7508
+    },
+    "generalization_gap": {
+      "mean": 0.25451999999999997,
+      "std": 0.005862337417788231,
+      "min": 0.24919999999999998,
+      "max": 0.26339999999999997
+    },
+    "final_train_loss": {
+      "mean": 0.04751735024511815,
+      "std": 0.0008602211161351204,
+      "min": 0.0467132346779108,
+      "max": 0.04887543354034424
+    },
+    "final_eval_loss": {
+      "mean": 0.7166599491977691,
+      "std": 0.01595755142734472,
+      "min": 0.7021778527259827,
+      "max": 0.7430230442047119
+    },
+    "wall_time_seconds": {
+      "mean": 16.540145015716554,
+      "std": 1.4692075914530458,
+      "min": 15.134093046188354,
+      "max": 18.52228617668152
+    }
+  },
+  "runs": [
+    {
+      "config": {
+        "experiment_name": "baseline",
+        "seed": 1,
+        "split_seed": 42,
+        "train_subset": "target_train",
+        "eval_subset": "target_test",
+        "model": {
+          "input_dim": 600,
+          "hidden_dim": 128,
+          "num_classes": 100,
+          "activation": "tanh"
+        },
+        "optimizer": "sgd",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "weight_decay": 0.0,
+        "batch_size": 128,
+        "epochs": 100,
+        "dp_config": null,
+        "output_root": "runs"
+      },
+      "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+      "device": "cpu",
+      "wall_time_seconds": 17.63086700439453,
+      "final_train_loss": 0.04887543354034424,
+      "final_train_acc": 1.0,
+      "final_eval_loss": 0.7430230442047119,
+      "final_eval_acc": 0.7366,
+      "generalization_gap": 0.26339999999999997,
+      "seed": 1,
+      "run_dir": "/Users/bytedance/EE509/runs/baseline/seed_1"
+    },
+    {
+      "config": {
+        "experiment_name": "baseline",
+        "seed": 2,
+        "split_seed": 42,
+        "train_subset": "target_train",
+        "eval_subset": "target_test",
+        "model": {
+          "input_dim": 600,
+          "hidden_dim": 128,
+          "num_classes": 100,
+          "activation": "tanh"
+        },
+        "optimizer": "sgd",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "weight_decay": 0.0,
+        "batch_size": 128,
+        "epochs": 100,
+        "dp_config": null,
+        "output_root": "runs"
+      },
+      "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+      "device": "cpu",
+      "wall_time_seconds": 15.134093046188354,
+      "final_train_loss": 0.047722996205091475,
+      "final_train_acc": 1.0,
+      "final_eval_loss": 0.706245621061325,
+      "final_eval_acc": 0.7495,
+      "generalization_gap": 0.25049999999999994,
+      "seed": 2,
+      "run_dir": "/Users/bytedance/EE509/runs/baseline/seed_2"
+    },
+    {
+      "config": {
+        "experiment_name": "baseline",
+        "seed": 3,
+        "split_seed": 42,
+        "train_subset": "target_train",
+        "eval_subset": "target_test",
+        "model": {
+          "input_dim": 600,
+          "hidden_dim": 128,
+          "num_classes": 100,
+          "activation": "tanh"
+        },
+        "optimizer": "sgd",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "weight_decay": 0.0,
+        "batch_size": 128,
+        "epochs": 100,
+        "dp_config": null,
+        "output_root": "runs"
+      },
+      "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+      "device": "cpu",
+      "wall_time_seconds": 15.980247974395752,
+      "final_train_loss": 0.0467132346779108,
+      "final_train_acc": 1.0,
+      "final_eval_loss": 0.7173922370910645,
+      "final_eval_acc": 0.7426,
+      "generalization_gap": 0.25739999999999996,
+      "seed": 3,
+      "run_dir": "/Users/bytedance/EE509/runs/baseline/seed_3"
+    },
+    {
+      "config": {
+        "experiment_name": "baseline",
+        "seed": 42,
+        "split_seed": 42,
+        "train_subset": "target_train",
+        "eval_subset": "target_test",
+        "model": {
+          "input_dim": 600,
+          "hidden_dim": 128,
+          "num_classes": 100,
+          "activation": "tanh"
+        },
+        "optimizer": "sgd",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "weight_decay": 0.0,
+        "batch_size": 128,
+        "epochs": 100,
+        "dp_config": null,
+        "output_root": "runs"
+      },
+      "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+      "device": "cpu",
+      "wall_time_seconds": 15.433230876922607,
+      "final_train_loss": 0.04740034813284874,
+      "final_train_acc": 1.0,
+      "final_eval_loss": 0.7144609909057618,
+      "final_eval_acc": 0.7479,
+      "generalization_gap": 0.2521,
+      "seed": 42,
+      "run_dir": "/Users/bytedance/EE509/runs/baseline/seed_42"
+    },
+    {
+      "config": {
+        "experiment_name": "baseline",
+        "seed": 99,
+        "split_seed": 42,
+        "train_subset": "target_train",
+        "eval_subset": "target_test",
+        "model": {
+          "input_dim": 600,
+          "hidden_dim": 128,
+          "num_classes": 100,
+          "activation": "tanh"
+        },
+        "optimizer": "sgd",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "weight_decay": 0.0,
+        "batch_size": 128,
+        "epochs": 100,
+        "dp_config": null,
+        "output_root": "runs"
+      },
+      "git_commit": "571b359a071f23e27913d045be91a9b3afd7b9f2",
+      "device": "cpu",
+      "wall_time_seconds": 18.52228617668152,
+      "final_train_loss": 0.04687473866939545,
+      "final_train_acc": 1.0,
+      "final_eval_loss": 0.7021778527259827,
+      "final_eval_acc": 0.7508,
+      "generalization_gap": 0.24919999999999998,
+      "seed": 99,
+      "run_dir": "/Users/bytedance/EE509/runs/baseline/seed_99"
+    }
+  ]
+}
